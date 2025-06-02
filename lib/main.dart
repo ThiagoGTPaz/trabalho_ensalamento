@@ -1,6 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
+import 'package:trabalho_gustavo/admin_home_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicialize o Supabase com os valores de variáveis de ambiente
+  await Supabase.initialize(
+    url: 'https://oksfaqaavvcnczhwmsno.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rc2ZhcWFhdnZjbmN6aHdtc25vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc2ODg5NTcsImV4cCI6MjA2MzI2NDk1N30.W74XL_NBJe5dsvJ1U73ouGL2KU49dVxwrmL5REIkQcw',
+  );
+
   runApp(const MainApp());
 }
 
@@ -26,23 +38,63 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
 
-  void _login() {
-    String username = _usernameController.text;
-    String password = _passwordController.text;
+  // Método de login utilizando Supabase
+  void _login() async {
+    final email = _usernameController.text.trim();
+    final password = _passwordController.text;
 
-    if ((username == 'admin' || username == 'professor') && password == '1234') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const DashboardScreen()),
-      );
-    } else {
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usuário ou senha incorretos')),
+        const SnackBar(content: Text('Por favor, preencha e-mail e senha')),
       );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      final user = response.user;
+
+      if (user == null || user.email == null) {
+        throw 'Falha ao autenticar usuário.';
+      }
+
+      final userEmail = user.email!;
+
+if (userEmail.toLowerCase() == 'adm@gmail.com') {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
+  );
+}
+ else {
+        // Vai pra dashboard ou outra tela
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        );
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro no login: $error')));
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
+  // Navegar para a tela de informações do aluno
   void _goToAlunoScreen() {
     Navigator.push(
       context,
@@ -71,10 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
               Text(
                 'Acesso para Professores e Administradores',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.green[900],
-                ),
+                style: TextStyle(fontSize: 18, color: Colors.green[900]),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -103,12 +152,18 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _login,
+                onPressed: _isLoading ? null : _login,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green[700],
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 40,
+                    vertical: 12,
+                  ),
                 ),
-                child: const Text('Entrar'),
+                child:
+                    _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text('Entrar'),
               ),
               const SizedBox(height: 40),
               const Divider(),
@@ -119,7 +174,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 onPressed: _goToAlunoScreen,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green[400],
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 40,
+                    vertical: 12,
+                  ),
                 ),
                 child: const Text('Sou Aluno'),
               ),
@@ -162,6 +220,7 @@ class AlunoInfoScreen extends StatefulWidget {
 class _AlunoInfoScreenState extends State<AlunoInfoScreen> {
   String? _cursoSelecionado;
   String? _semestreSelecionado;
+  bool _isLoading = false;
 
   final List<String> _cursos = [
     'Análise e Desenvolvimento de Sistemas',
@@ -183,17 +242,45 @@ class _AlunoInfoScreenState extends State<AlunoInfoScreen> {
     '8º Semestre',
   ];
 
-  void _confirmar() {
+  // Método de confirmação para inserir dados do aluno
+  void _confirmar() async {
     if (_cursoSelecionado != null && _semestreSelecionado != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AlunoScreen(
-            curso: _cursoSelecionado!,
-            semestre: _semestreSelecionado!,
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final supabase = Supabase.instance.client;
+
+        final response = await supabase.from('alunos').insert({
+          'curso': _cursoSelecionado,
+          'semestre': _semestreSelecionado,
+          'criado_em': DateTime.now().toIso8601String(),
+        });
+
+        if (response.error != null) {
+          throw response.error!.message;
+        }
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => AlunoScreen(
+                  curso: _cursoSelecionado!,
+                  semestre: _semestreSelecionado!,
+                ),
           ),
-        ),
-      );
+        );
+      } catch (error) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro: $error')));
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Selecione curso e semestre')),
@@ -219,12 +306,13 @@ class _AlunoInfoScreenState extends State<AlunoInfoScreen> {
                 border: OutlineInputBorder(),
               ),
               value: _cursoSelecionado,
-              items: _cursos
-                  .map((curso) => DropdownMenuItem(
-                        value: curso,
-                        child: Text(curso),
-                      ))
-                  .toList(),
+              items:
+                  _cursos
+                      .map(
+                        (curso) =>
+                            DropdownMenuItem(value: curso, child: Text(curso)),
+                      )
+                      .toList(),
               onChanged: (value) {
                 setState(() {
                   _cursoSelecionado = value;
@@ -238,12 +326,15 @@ class _AlunoInfoScreenState extends State<AlunoInfoScreen> {
                 border: OutlineInputBorder(),
               ),
               value: _semestreSelecionado,
-              items: _semestres
-                  .map((semestre) => DropdownMenuItem(
-                        value: semestre,
-                        child: Text(semestre),
-                      ))
-                  .toList(),
+              items:
+                  _semestres
+                      .map(
+                        (semestre) => DropdownMenuItem(
+                          value: semestre,
+                          child: Text(semestre),
+                        ),
+                      )
+                      .toList(),
               onChanged: (value) {
                 setState(() {
                   _semestreSelecionado = value;
@@ -252,12 +343,18 @@ class _AlunoInfoScreenState extends State<AlunoInfoScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: _confirmar,
+              onPressed: _isLoading ? null : _confirmar,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green[700],
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 40,
+                  vertical: 12,
+                ),
               ),
-              child: const Text('Confirmar'),
+              child:
+                  _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Confirmar'),
             ),
           ],
         ),
