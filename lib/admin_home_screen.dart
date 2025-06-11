@@ -326,7 +326,6 @@ class _EnsalamentoDialogState extends State<EnsalamentoDialog> {
   bool _isLoading = false;
   bool _isLoadingSalas = false;
 
-  // Checkbox states
   bool _precisaProjetor = false;
   bool _precisaTV = false;
   bool _precisaArCondicionado = false;
@@ -335,7 +334,6 @@ class _EnsalamentoDialogState extends State<EnsalamentoDialog> {
   bool _precisaChromebook = false;
   bool _precisaMA = false;
 
-  // Calendário e repetição
   DateTime _selectedDate = DateTime.now();
   bool _repetirAteFinalSemestre = false;
 
@@ -458,13 +456,12 @@ Future<void> _salvarEnsalamentoIndividual({
   required int salaId,
   required DateTime dataAula,
 }) async {
-  // Obtenha o dia da semana (segunda, terca, etc)
   final dias = ['segunda', 'terca', 'quarta', 'quinta', 'sexta'];
   final diaSemana = dias[dataAula.weekday - 1];
   
   await Supabase.instance.client.from('ensalamentos').insert({
-    'curso': _selectedCurso, // Texto referenciando cursos(nome)
-    'professor_id': _selectedProfessorId, // Você precisa obter o ID do professor
+    'curso': _selectedCurso, 
+    'professor_id': _selectedProfessorId, 
     'materia': _materiaController.text.trim(),
     'semestre': _selectedSemestre,
     'horario': _selectedHorario,
@@ -986,7 +983,6 @@ class _ListaProfessoresScreenState extends State<ListaProfessoresScreen> {
     );
   }
 }
-// === Criar Sala ===
 
 class CriarSalaDialog extends StatefulWidget {
   const CriarSalaDialog({super.key});
@@ -1143,7 +1139,6 @@ class _CriarSalaDialogState extends State<CriarSalaDialog> {
   }
 }
 
-// === Adicionar Curso ===
 
 class AdicionarCursoDialog extends StatefulWidget {
   const AdicionarCursoDialog({super.key});
@@ -1223,7 +1218,6 @@ class _AdicionarCursoDialogState extends State<AdicionarCursoDialog> {
   }
 }
 
-// === Editar Sala - Lista ===
 
 class ListaSalasScreen extends StatefulWidget {
   const ListaSalasScreen({super.key});
@@ -1297,7 +1291,6 @@ class _ListaSalasScreenState extends State<ListaSalasScreen> {
   }
 }
 
-// === Editar Sala - Formulário ===
 
 class EditarSalaScreen extends StatefulWidget {
   final Map<String, dynamic> sala;
@@ -1372,7 +1365,6 @@ class _EditarSalaScreenState extends State<EditarSalaScreen> {
             },
           ]).select();
 
-      // Se quiser, use o `data` aqui (é uma lista de mapas)
       print(data);
 
       ScaffoldMessenger.of(
@@ -1475,7 +1467,6 @@ class _EditarSalaScreenState extends State<EditarSalaScreen> {
     );
   }
 }
-// === Lista de Curso ===
 
 class ListaCursosScreen extends StatefulWidget {
   const ListaCursosScreen({super.key});
@@ -1503,7 +1494,6 @@ class _ListaCursosScreenState extends State<ListaCursosScreen> {
       context,
       MaterialPageRoute(builder: (_) => EditarCursoScreen(curso: curso)),
     ).then((_) {
-      // Atualiza a lista após voltar
       setState(() {
         _futureCursos = _buscarCursos();
       });
@@ -1544,7 +1534,6 @@ class _ListaCursosScreenState extends State<ListaCursosScreen> {
   }
 }
 
-// === Editar Curso ===
 class EditarCursoScreen extends StatefulWidget {
   final Map<String, dynamic> curso;
 
@@ -1636,9 +1625,6 @@ class _EditarCursoScreenState extends State<EditarCursoScreen> {
   }
 }
 
-// === Adicionar Professor ===
-
-  // Recursos disponíveis
   final Map<String, bool> _recursos = {
     'projetor': false,
     'tv': false,

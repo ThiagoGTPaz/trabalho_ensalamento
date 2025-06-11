@@ -6,7 +6,6 @@ import 'package:trabalho_gustavo/admin_home_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicialize o Supabase com os valores de variáveis de ambiente
   await Supabase.initialize(
     url: 'https://oksfaqaavvcnczhwmsno.supabase.co',
     anonKey:
@@ -40,7 +39,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
 
-  // Método de login utilizando Supabase
   void _login() async {
     final email = _usernameController.text.trim();
     final password = _passwordController.text;
@@ -70,14 +68,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final userEmail = user.email!;
 
-if (userEmail.toLowerCase() == 'adm@gmail.com') {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
-  );
-}
- else {
-        // Vai pra dashboard ou outra tela
+      if (userEmail.toLowerCase() == 'adm@gmail.com') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
+        );
+      } else {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const DashboardScreen()),
@@ -94,11 +90,17 @@ if (userEmail.toLowerCase() == 'adm@gmail.com') {
     }
   }
 
-  // Navegar para a tela de informações do aluno
   void _goToAlunoScreen() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AlunoInfoScreen()),
+    );
+  }
+
+  void _goToProfessorScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ProfessorInfoScreen()),
     );
   }
 
@@ -122,7 +124,7 @@ if (userEmail.toLowerCase() == 'adm@gmail.com') {
               ),
               const SizedBox(height: 20),
               Text(
-                'Acesso para Professores e Administradores',
+                'Acesso para Administradores',
                 style: TextStyle(fontSize: 18, color: Colors.green[900]),
                 textAlign: TextAlign.center,
               ),
@@ -181,6 +183,18 @@ if (userEmail.toLowerCase() == 'adm@gmail.com') {
                 ),
                 child: const Text('Sou Aluno'),
               ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _goToProfessorScreen,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green[500],
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 40,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text('Sou Professor'),
+              ),
             ],
           ),
         ),
@@ -236,13 +250,11 @@ class _AlunoInfoScreenState extends State<AlunoInfoScreen> {
     });
 
     try {
-      // Carrega cursos disponíveis
       final cursosResponse = await Supabase.instance.client
           .from('cursos')
           .select('nome')
           .order('nome');
-      
-      // Carrega semestres distintos dos ensalamentos
+
       final semestresResponse = await Supabase.instance.client
           .from('ensalamentos')
           .select('semestre')
@@ -250,17 +262,18 @@ class _AlunoInfoScreenState extends State<AlunoInfoScreen> {
 
       setState(() {
         _cursos = (cursosResponse as List).cast<Map<String, dynamic>>();
-        _semestres = (semestresResponse as List)
-            .cast<Map<String, dynamic>>()
-            .map((e) => e['semestre'].toString())
-            .toSet() // Remove duplicatas
-            .toList()
-            ..sort();
+        _semestres =
+            (semestresResponse as List)
+                .cast<Map<String, dynamic>>()
+                .map((e) => e['semestre'].toString())
+                .toSet()
+                .toList()
+              ..sort();
       });
     } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao carregar dados: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao carregar dados: $error')));
     } finally {
       setState(() {
         _isLoading = false;
@@ -279,10 +292,11 @@ class _AlunoInfoScreenState extends State<AlunoInfoScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AlunoScreen(
-          curso: _cursoSelecionado!,
-          semestre: _semestreSelecionado!,
-        ),
+        builder:
+            (context) => AlunoScreen(
+              curso: _cursoSelecionado!,
+              semestre: _semestreSelecionado!,
+            ),
       ),
     );
   }
@@ -297,65 +311,68 @@ class _AlunoInfoScreenState extends State<AlunoInfoScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Curso',
-                      border: OutlineInputBorder(),
-                    ),
-                    value: _cursoSelecionado,
-                    items: _cursos
-                        .map(
-                          (curso) => DropdownMenuItem(
-                            value: curso['nome'] as String,
-                            child: Text(curso['nome'] as String),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _cursoSelecionado = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Semestre',
-                      border: OutlineInputBorder(),
-                    ),
-                    value: _semestreSelecionado,
-                    items: _semestres
-                        .map(
-                          (semestre) => DropdownMenuItem(
-                            value: semestre,
-                            child: Text('$semestreº Semestre'),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _semestreSelecionado = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _confirmar,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green[700],
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 40,
-                        vertical: 12,
+        child:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                  children: [
+                    DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(
+                        labelText: 'Curso',
+                        border: OutlineInputBorder(),
                       ),
+                      value: _cursoSelecionado,
+                      items:
+                          _cursos
+                              .map(
+                                (curso) => DropdownMenuItem(
+                                  value: curso['nome'] as String,
+                                  child: Text(curso['nome'] as String),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _cursoSelecionado = value;
+                        });
+                      },
                     ),
-                    child: const Text('Confirmar'),
-                  ),
-                ],
-              ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(
+                        labelText: 'Semestre',
+                        border: OutlineInputBorder(),
+                      ),
+                      value: _semestreSelecionado,
+                      items:
+                          _semestres
+                              .map(
+                                (semestre) => DropdownMenuItem(
+                                  value: semestre,
+                                  child: Text('$semestreº Semestre'),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _semestreSelecionado = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _confirmar,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green[700],
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: const Text('Confirmar'),
+                    ),
+                  ],
+                ),
       ),
     );
   }
@@ -365,11 +382,7 @@ class AlunoScreen extends StatefulWidget {
   final String curso;
   final String semestre;
 
-  const AlunoScreen({
-    super.key,
-    required this.curso,
-    required this.semestre,
-  });
+  const AlunoScreen({super.key, required this.curso, required this.semestre});
 
   @override
   State<AlunoScreen> createState() => _AlunoScreenState();
@@ -391,11 +404,9 @@ class _AlunoScreenState extends State<AlunoScreen> {
     });
 
     try {
-      // Obtém o dia da semana atual (1 = segunda, 7 = domingo)
       final hoje = DateTime.now();
       final diaDaSemana = hoje.weekday;
 
-      // Converte para formato de dia (segunda, terça, etc.)
       final diasDaSemana = {
         1: 'segunda',
         2: 'terca',
@@ -407,10 +418,9 @@ class _AlunoScreenState extends State<AlunoScreen> {
       final diaAtual = diasDaSemana[diaDaSemana];
 
       if (diaAtual == null) {
-        return []; // Fim de semana, não há aulas
+        return []; 
       }
 
-      // Busca os ensalamentos para o curso, semestre e dia atual
       final response = await Supabase.instance.client
           .from('ensalamentos')
           .select('''
@@ -487,6 +497,257 @@ class _AlunoScreenState extends State<AlunoScreen> {
                       const SizedBox(height: 8),
                       Text(
                         'Horário: ${_formatarHorario(ensalamento['horario'])}',
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  String _formatarHorario(String? horario) {
+    switch (horario) {
+      case 'primeiro':
+        return 'Primeiro Horário (19:00 - 20:40)';
+      case 'segundo':
+        return 'Segundo Horário (20:50 - 22:30)';
+      default:
+        return 'Horário não informado';
+    }
+  }
+}
+
+class ProfessorInfoScreen extends StatefulWidget {
+  const ProfessorInfoScreen({super.key});
+
+  @override
+  State<ProfessorInfoScreen> createState() => _ProfessorInfoScreenState();
+}
+
+class _ProfessorInfoScreenState extends State<ProfessorInfoScreen> {
+  int? _professorSelecionadoId;
+  bool _isLoading = false;
+  List<Map<String, dynamic>> _professores = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarProfessores();
+  }
+
+  Future<void> _carregarProfessores() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await Supabase.instance.client
+          .from('professores')
+          .select('id, nome')
+          .order('nome');
+
+      setState(() {
+        _professores = (response as List).cast<Map<String, dynamic>>();
+      });
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao carregar professores: $error')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _confirmar() {
+    if (_professorSelecionadoId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Selecione um professor')));
+      return;
+    }
+
+    final professorSelecionado = _professores.firstWhere(
+      (prof) => prof['id'] == _professorSelecionadoId,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => ProfessorScreen(
+              professorId: _professorSelecionadoId!,
+              professorNome: professorSelecionado['nome'],
+            ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.green[50],
+      appBar: AppBar(
+        backgroundColor: Colors.green[600],
+        title: const Text('Informações do Professor'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                  children: [
+                    DropdownButtonFormField<int>(
+                      decoration: const InputDecoration(
+                        labelText: 'Professor',
+                        border: OutlineInputBorder(),
+                      ),
+                      value: _professorSelecionadoId,
+                      items:
+                          _professores
+                              .map(
+                                (professor) => DropdownMenuItem(
+                                  value: professor['id'] as int,
+                                  child: Text(professor['nome'] as String),
+                                ),
+                              )
+                              .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _professorSelecionadoId = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _confirmar,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green[700],
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: const Text('Confirmar'),
+                    ),
+                  ],
+                ),
+      ),
+    );
+  }
+}
+
+class ProfessorScreen extends StatefulWidget {
+  final int professorId;
+  final String professorNome;
+
+  const ProfessorScreen({
+    super.key,
+    required this.professorId,
+    required this.professorNome,
+  });
+
+  @override
+  State<ProfessorScreen> createState() => _ProfessorScreenState();
+}
+
+class _ProfessorScreenState extends State<ProfessorScreen> {
+  late Future<List<Map<String, dynamic>>> _futureEnsalamentos;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureEnsalamentos = _carregarEnsalamentos();
+  }
+
+  Future<List<Map<String, dynamic>>> _carregarEnsalamentos() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await Supabase.instance.client
+          .from('ensalamentos')
+          .select('''
+            *,
+            sala:salas(nome),
+            curso:cursos(nome)
+          ''')
+          .eq('professor_id', widget.professorId)
+          .order('data_aula');
+
+      return (response as List).cast<Map<String, dynamic>>();
+    } catch (error) {
+      throw Exception('Erro ao carregar ensalamentos: $error');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.green[50],
+      appBar: AppBar(
+        backgroundColor: Colors.green[600],
+        title: Text('Aulas - ${widget.professorNome}'),
+      ),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _futureEnsalamentos,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Erro: ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('Nenhuma aula agendada.'));
+          }
+
+          final ensalamentos = snapshot.data!;
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: ensalamentos.length,
+            itemBuilder: (context, index) {
+              final ensalamento = ensalamentos[index];
+              final data = DateTime.parse(ensalamento['data_aula'] as String);
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ensalamento['materia'] ?? 'Matéria não informada',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Data: ${data.day}/${data.month}/${data.year}'),
+                      Text(
+                        'Curso: ${ensalamento['curso']?['nome'] ?? 'Não informado'}',
+                      ),
+                      Text(
+                        'Sala: ${ensalamento['sala']?['nome'] ?? 'Não informada'}',
+                      ),
+                      Text(
+                        'Horário: ${_formatarHorario(ensalamento['horario'])}',
+                      ),
+                      Text(
+                        'Semestre: ${ensalamento['semestre'] ?? 'Não informado'}',
                       ),
                     ],
                   ),
