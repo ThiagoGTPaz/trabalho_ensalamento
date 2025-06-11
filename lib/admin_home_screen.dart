@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   const AdminHomeScreen({super.key});
 
-  // == Botões ==
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -22,8 +22,8 @@ class AdminHomeScreen extends StatelessWidget {
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 icon: const Icon(Icons.schedule),
-                label: const Text('Ensalamennto'),
-                onPressed: () => _abrirFormularioEnsalamennto(context),
+                label: const Text('Ensalamento'),
+                onPressed: () => _abrirFormularioEnsalamento(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green[800],
                   minimumSize: const Size(double.infinity, 50),
@@ -59,7 +59,6 @@ class AdminHomeScreen extends StatelessWidget {
                   minimumSize: const Size(double.infinity, 50),
                 ),
               ),
-
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 icon: const Icon(Icons.edit),
@@ -80,7 +79,6 @@ class AdminHomeScreen extends StatelessWidget {
                   minimumSize: const Size(double.infinity, 50),
                 ),
               ),
-
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 icon: const Icon(Icons.person_add),
@@ -91,6 +89,16 @@ class AdminHomeScreen extends StatelessWidget {
                   minimumSize: const Size(double.infinity, 50),
                 ),
               ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.calendar_today),
+                label: const Text('Calendário de Aulas'),
+                onPressed: () => _abrirCalendarioAulas(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green[700],
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+              ),
             ],
           ),
         ),
@@ -98,10 +106,10 @@ class AdminHomeScreen extends StatelessWidget {
     );
   }
 
-  void _abrirFormularioEnsalamennto(BuildContext context) {
+  void _abrirFormularioEnsalamento(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => const EnsalamenntoDialog(),
+      builder: (context) => const EnsalamentoDialog(),
     );
   }
 
@@ -117,18 +125,18 @@ class AdminHomeScreen extends StatelessWidget {
   }
 
   void _abrirFormularioAdicionarProfessor(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (context) => const AdicionarProfessorDialog(), // Sem const
-  );
-}
+    showDialog(
+      context: context,
+      builder: (context) => const AdicionarProfessorDialog(),
+    );
+  }
 
-void _abrirListaProfessores(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const ListaProfessoresScreen()), // Sem const
-  );
-}
+  void _abrirListaProfessores(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ListaProfessoresScreen()),
+    );
+  }
 
   void _abrirFormularioAdicionarCurso(BuildContext context) {
     showDialog(
@@ -143,20 +151,173 @@ void _abrirListaProfessores(BuildContext context) {
       MaterialPageRoute(builder: (_) => const ListaCursosScreen()),
     );
   }
+
+  void _abrirCalendarioAulas(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CalendarioAulasScreen()),
+    );
+  }
 }
 
-// == Ensalamento ==
-class EnsalamenntoDialog extends StatefulWidget {
-  const EnsalamenntoDialog({super.key});
+class CalendarioAulasScreen extends StatefulWidget {
+  const CalendarioAulasScreen({super.key});
 
   @override
-  State<EnsalamenntoDialog> createState() => _EnsalamenntoDialogState();
+  State<CalendarioAulasScreen> createState() => _CalendarioAulasScreenState();
 }
 
-class _EnsalamenntoDialogState extends State<EnsalamenntoDialog> {
+class _CalendarioAulasScreenState extends State<CalendarioAulasScreen> {
+  late Future<List<Map<String, dynamic>>> _futureEnsalamentos;
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+  Map<DateTime, List<Map<String, dynamic>>> _events = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _futureEnsalamentos = _carregarEnsalamentos();
+  }
+
+  Future<List<Map<String, dynamic>>> _carregarEnsalamentos() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('ensalamentos')
+          .select('''
+            *,
+            sala:salas(nome),
+            professor:professores(nome),
+            curso:cursos(nome)
+          ''')
+          .order('data_aula');
+
+      final ensalamentos = (response as List).cast<Map<String, dynamic>>();
+
+      final events = <DateTime, List<Map<String, dynamic>>>{};
+      for (final ensalamento in ensalamentos) {
+        final date =
+            DateTime.parse(ensalamento['data_aula'] as String).toLocal();
+        final dateKey = DateTime(date.year, date.month, date.day);
+
+        if (events.containsKey(dateKey)) {
+          events[dateKey]!.add(ensalamento);
+        } else {
+          events[dateKey] = [ensalamento];
+        }
+      }
+
+      setState(() {
+        _events = events;
+        _selectedDay = _focusedDay;
+      });
+
+      return ensalamentos;
+    } catch (error) {
+      throw Exception('Erro ao carregar ensalamentos: $error');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Calendário de Aulas')),
+      body: Column(
+        children: [
+          TableCalendar<Map<String, dynamic>>(
+            firstDay: DateTime.now().subtract(const Duration(days: 365)),
+            lastDay: DateTime.now().add(const Duration(days: 365)),
+            focusedDay: _focusedDay,
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _selectedDay = selectedDay;
+                _focusedDay = focusedDay;
+              });
+            },
+            eventLoader: (day) => _events[day] ?? [],
+            calendarStyle: const CalendarStyle(
+              markerDecoration: BoxDecoration(
+                color: Colors.green,
+                shape: BoxShape.circle,
+              ),
+            ),
+            headerStyle: HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Divider(),
+          Expanded(child: _buildEventList()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventList() {
+    if (_selectedDay == null) {
+      return const Center(child: Text('Selecione uma data no calendário'));
+    }
+
+    final events = _events[_selectedDay] ?? [];
+
+    if (events.isEmpty) {
+      return const Center(child: Text('Nenhuma aula agendada para este dia'));
+    }
+
+    return ListView.builder(
+      itemCount: events.length,
+      itemBuilder: (context, index) {
+        final ensalamento = events[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: ListTile(
+            title: Text(ensalamento['materia'] ?? 'Sem matéria'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sala: ${ensalamento['sala']?['nome'] ?? 'Não informada'}',
+                ),
+                Text(
+                  'Professor: ${ensalamento['professor']?['nome'] ?? 'Não informado'}',
+                ),
+                Text(
+                  'Curso: ${ensalamento['curso']?['nome'] ?? 'Não informado'}',
+                ),
+                Text('Semestre: ${ensalamento['semestre'] ?? 'Não informado'}'),
+                Text('Horário: ${_formatarHorario(ensalamento['horario'])}'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatarHorario(String? horario) {
+    switch (horario) {
+      case 'primeiro':
+        return 'Primeiro Horário';
+      case 'segundo':
+        return 'Segundo Horário';
+      default:
+        return 'Horário não informado';
+    }
+  }
+}
+
+class EnsalamentoDialog extends StatefulWidget {
+  const EnsalamentoDialog({super.key});
+
+  @override
+  State<EnsalamentoDialog> createState() => _EnsalamentoDialogState();
+}
+
+class _EnsalamentoDialogState extends State<EnsalamentoDialog> {
   final TextEditingController _materiaController = TextEditingController();
   String? _selectedCurso;
-  String? _selectedProfessor;
+  int? _selectedProfessorId;
   String? _selectedHorario;
   int? _selectedSemestre;
   List<Map<String, dynamic>> _filteredSalas = [];
@@ -174,6 +335,10 @@ class _EnsalamenntoDialogState extends State<EnsalamenntoDialog> {
   bool _precisaChromebook = false;
   bool _precisaMA = false;
 
+  // Calendário e repetição
+  DateTime _selectedDate = DateTime.now();
+  bool _repetirAteFinalSemestre = false;
+
   @override
   void initState() {
     super.initState();
@@ -181,27 +346,26 @@ class _EnsalamenntoDialogState extends State<EnsalamenntoDialog> {
   }
 
   Future<void> _carregarDadosIniciais() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      final cursos = await Supabase.instance.client.from('cursos').select();
-      final professores =
-          await Supabase.instance.client.from('professores').select();
+      final cursosResponse =
+          await Supabase.instance.client.from('cursos').select();
+  final professoresResponse = await Supabase.instance.client
+      .from('professores')
+      .select('id, nome, professor_curso:professor_curso(curso_nome)');
 
       setState(() {
-        _cursos = (cursos as List).cast<Map<String, dynamic>>();
-        _professores = (professores as List).cast<Map<String, dynamic>>();
+        _cursos = (cursosResponse as List).cast<Map<String, dynamic>>();
+        _professores =
+            (professoresResponse as List).cast<Map<String, dynamic>>();
       });
     } catch (error) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Erro ao carregar dados: $error')));
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
@@ -219,31 +383,15 @@ class _EnsalamenntoDialogState extends State<EnsalamenntoDialog> {
     });
 
     try {
-      // Construir a query base
       var query = Supabase.instance.client.from('salas').select();
 
-      // Adicionar filtros baseados nos checkboxes selecionados
-      if (_precisaProjetor) {
-        query = query.eq('projetor', true);
-      }
-      if (_precisaTV) {
-        query = query.eq('tv', true);
-      }
-      if (_precisaArCondicionado) {
-        query = query.eq('ar_condicionado', true);
-      }
-      if (_precisaCadeiraPCD) {
-        query = query.eq('cadeira_pcd', true);
-      }
-      if (_precisaInformatica) {
-        query = query.eq('informatica', true);
-      }
-      if (_precisaChromebook) {
-        query = query.eq('chromebook', true);
-      }
-      if (_precisaMA) {
-        query = query.eq('ma', true);
-      }
+      if (_precisaProjetor) query = query.eq('projetor', true);
+      if (_precisaTV) query = query.eq('tv', true);
+      if (_precisaArCondicionado) query = query.eq('ar_condicionado', true);
+      if (_precisaCadeiraPCD) query = query.eq('cadeira_pcd', true);
+      if (_precisaInformatica) query = query.eq('informatica', true);
+      if (_precisaChromebook) query = query.eq('chromebook', true);
+      if (_precisaMA) query = query.eq('ma', true);
 
       final result = await query;
 
@@ -261,9 +409,9 @@ class _EnsalamenntoDialogState extends State<EnsalamenntoDialog> {
     }
   }
 
-  Future<void> _salvarEnsalamennto(int salaId) async {
+  Future<void> _salvarEnsalamento(int salaId) async {
     if (_selectedCurso == null ||
-        _selectedProfessor == null ||
+        _selectedProfessorId == null ||
         _selectedSemestre == null ||
         _selectedHorario == null ||
         _materiaController.text.isEmpty) {
@@ -278,22 +426,26 @@ class _EnsalamenntoDialogState extends State<EnsalamenntoDialog> {
     });
 
     try {
-      await Supabase.instance.client.from('ensalamenntos').insert({
-        'curso': _selectedCurso,
-        'professor': _selectedProfessor,
-        'materia': _materiaController.text.trim(),
-        'semestre': _selectedSemestre,
-        'horario': _selectedHorario,
-        'sala_id': salaId,
-      });
+      if (_repetirAteFinalSemestre) {
+        final datasAulas = _gerarDatasAteFinalSemestre();
+
+        for (final data in datasAulas) {
+          await _salvarEnsalamentoIndividual(salaId: salaId, dataAula: data);
+        }
+      } else {
+        await _salvarEnsalamentoIndividual(
+          salaId: salaId,
+          dataAula: _selectedDate,
+        );
+      }
 
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ensalamennto salvo com sucesso!')),
+        const SnackBar(content: Text('Ensalamento salvo com sucesso!')),
       );
     } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao salvar ensalamennto: $error')),
+        SnackBar(content: Text('Erro ao salvar ensalamento: $error')),
       );
     } finally {
       setState(() {
@@ -302,10 +454,54 @@ class _EnsalamenntoDialogState extends State<EnsalamenntoDialog> {
     }
   }
 
+Future<void> _salvarEnsalamentoIndividual({
+  required int salaId,
+  required DateTime dataAula,
+}) async {
+  // Obtenha o dia da semana (segunda, terca, etc)
+  final dias = ['segunda', 'terca', 'quarta', 'quinta', 'sexta'];
+  final diaSemana = dias[dataAula.weekday - 1];
+  
+  await Supabase.instance.client.from('ensalamentos').insert({
+    'curso': _selectedCurso, // Texto referenciando cursos(nome)
+    'professor_id': _selectedProfessorId, // Você precisa obter o ID do professor
+    'materia': _materiaController.text.trim(),
+    'semestre': _selectedSemestre,
+    'horario': _selectedHorario,
+    'sala_id': salaId,
+    'data_aula': dataAula.toIso8601String(),
+    'dia_semana': diaSemana,
+    'projetor': _precisaProjetor,
+    'tv': _precisaTV,
+    'ar_condicionado': _precisaArCondicionado,
+    'cadeira_pcd': _precisaCadeiraPCD,
+    'informatica': _precisaInformatica,
+    'chromebook': _precisaChromebook,
+    'ma': _precisaMA,
+  });
+}
+
+  List<DateTime> _gerarDatasAteFinalSemestre() {
+    final datas = <DateTime>[];
+    DateTime currentDate = _selectedDate;
+
+    final finalSemestre =
+        _selectedSemestre == 1
+            ? DateTime(currentDate.year, 7, 31)
+            : DateTime(currentDate.year, 12, 31);
+
+    while (currentDate.isBefore(finalSemestre)) {
+      datas.add(currentDate);
+      currentDate = currentDate.add(const Duration(days: 7));
+    }
+
+    return datas;
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Novo Ensalamennto'),
+      title: const Text('Novo Ensalamento'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -313,50 +509,82 @@ class _EnsalamenntoDialogState extends State<EnsalamenntoDialog> {
             if (_isLoading)
               const Center(child: CircularProgressIndicator())
             else ...[
-              DropdownButtonFormField<String>(
-                value: _selectedCurso,
-                decoration: const InputDecoration(labelText: 'Curso'),
-                items:
-                    _cursos.map((curso) {
-                      return DropdownMenuItem<String>(
-                        value: curso['nome'],
-                        child: Text(curso['nome']),
-                      );
-                    }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCurso = value;
-                    // Filtrar professores pelo curso selecionado
-                    _selectedProfessor = null;
-                  });
-                },
+              ListTile(
+                title: const Text('Data da Aula'),
+                subtitle: Text(
+                  '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.calendar_today),
+                  onPressed: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime(DateTime.now().year + 1),
+                    );
+                    if (pickedDate != null) {
+                      setState(() => _selectedDate = pickedDate);
+                    }
+                  },
+                ),
               ),
+
+              CheckboxListTile(
+                title: const Text('Repetir esta aula até o final do semestre'),
+                value: _repetirAteFinalSemestre,
+                onChanged:
+                    (value) => setState(() {
+                      _repetirAteFinalSemestre = value ?? false;
+                    }),
+              ),
+
+DropdownButtonFormField<String>(
+  value: _selectedCurso,
+  decoration: const InputDecoration(labelText: 'Curso'),
+  items: _cursos.map((curso) {
+    return DropdownMenuItem<String>(
+      value: curso['nome'],
+      child: Text(curso['nome']),
+    );
+  }).toList(),
+  onChanged: (value) {
+    setState(() {
+      _selectedCurso = value;
+    });
+  },
+),
 
               const SizedBox(height: 12),
 
-              DropdownButtonFormField<String>(
-                value: _selectedProfessor,
-                decoration: const InputDecoration(labelText: 'Professor'),
-                items:
-                    _professores
-                        .where(
-                          (prof) =>
-                              _selectedCurso == null ||
-                              prof['curso'] == _selectedCurso,
-                        )
-                        .map((prof) {
-                          return DropdownMenuItem<String>(
-                            value: prof['nome'],
-                            child: Text(prof['nome']),
-                          );
-                        })
-                        .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedProfessor = value;
-                  });
-                },
-              ),
+DropdownButtonFormField<int>(
+  value: _selectedProfessorId,
+  decoration: const InputDecoration(labelText: 'Professor'),
+  items: _professores
+      .where((prof) {
+        if (_selectedCurso == null) return true;
+        final cursosProfessor = (prof['professor_curso'] as List)
+            .cast<Map<String, dynamic>>()
+            .map((pc) => pc['curso_nome'] as String)
+            .toList();
+        return cursosProfessor.contains(_selectedCurso);
+      })
+      .map((prof) {
+        return DropdownMenuItem<int>(
+          value: prof['id'],
+          child: Text(prof['nome']),
+        );
+      })
+      .toList(),
+  onChanged: (value) {
+    setState(() {
+      _selectedProfessorId = value;
+    });
+  },                validator:
+                    (value) => value == null ? 'Selecione um professor' : null,
+)
+
+              ,
 
               const SizedBox(height: 12),
 
@@ -481,7 +709,7 @@ class _EnsalamenntoDialogState extends State<EnsalamenntoDialog> {
                       ),
                       trailing: IconButton(
                         icon: const Icon(Icons.check),
-                        onPressed: () => _salvarEnsalamennto(sala['id']),
+                        onPressed: () => _salvarEnsalamento(sala['id']),
                       ),
                     ),
                   );
@@ -503,11 +731,13 @@ class _EnsalamenntoDialogState extends State<EnsalamenntoDialog> {
     );
   }
 }
+
 class AdicionarProfessorDialog extends StatefulWidget {
   const AdicionarProfessorDialog({super.key});
 
   @override
-  State<AdicionarProfessorDialog> createState() => _AdicionarProfessorDialogState();
+  State<AdicionarProfessorDialog> createState() =>
+      _AdicionarProfessorDialogState();
 }
 
 class _AdicionarProfessorDialogState extends State<AdicionarProfessorDialog> {
@@ -524,7 +754,7 @@ class _AdicionarProfessorDialogState extends State<AdicionarProfessorDialog> {
 
   Future<void> _carregarCursos() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final response = await Supabase.instance.client.from('cursos').select();
       setState(() {
@@ -550,13 +780,14 @@ class _AdicionarProfessorDialogState extends State<AdicionarProfessorDialog> {
     }
 
     setState(() => _isLoading = true);
-    
+
     try {
-      final professorResponse = await Supabase.instance.client
-          .from('professores')
-          .insert({'nome': nome})
-          .select()
-          .single();
+      final professorResponse =
+          await Supabase.instance.client
+              .from('professores')
+              .insert({'nome': nome})
+              .select()
+              .single();
 
       final professorId = professorResponse['id'] as int;
 
@@ -593,10 +824,15 @@ class _AdicionarProfessorDialogState extends State<AdicionarProfessorDialog> {
             else ...[
               TextField(
                 controller: _nomeController,
-                decoration: const InputDecoration(labelText: 'Nome do Professor'),
+                decoration: const InputDecoration(
+                  labelText: 'Nome do Professor',
+                ),
               ),
               const SizedBox(height: 16),
-              const Text('Selecione os cursos:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'Selecione os cursos:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               ..._todosCursos.map((curso) {
                 return CheckboxListTile(
                   title: Text(curso['nome']),
@@ -623,9 +859,10 @@ class _AdicionarProfessorDialogState extends State<AdicionarProfessorDialog> {
         ),
         ElevatedButton(
           onPressed: _isLoading ? null : _salvarProfessor,
-          child: _isLoading
-              ? const CircularProgressIndicator()
-              : const Text('Salvar'),
+          child:
+              _isLoading
+                  ? const CircularProgressIndicator()
+                  : const Text('Salvar'),
         ),
       ],
     );
@@ -673,17 +910,14 @@ class _ListaProfessoresScreenState extends State<ListaProfessoresScreen> {
 
   Future<void> _excluirProfessor(int id) async {
     setState(() => _isLoading = true);
-    
+
     try {
       await Supabase.instance.client
           .from('professor_curso')
           .delete()
           .eq('professor_id', id);
 
-      await Supabase.instance.client
-          .from('professores')
-          .delete()
-          .eq('id', id);
+      await Supabase.instance.client.from('professores').delete().eq('id', id);
 
       setState(() {
         _futureProfessores = _carregarProfessores();
@@ -722,10 +956,11 @@ class _ListaProfessoresScreenState extends State<ListaProfessoresScreen> {
             itemCount: professores.length,
             itemBuilder: (context, index) {
               final professor = professores[index];
-              final cursos = (professor['professor_curso'] as List)
-                  .cast<Map<String, dynamic>>()
-                  .map((pc) => pc['curso_nome'] as String)
-                  .toList();
+              final cursos =
+                  (professor['professor_curso'] as List)
+                      .cast<Map<String, dynamic>>()
+                      .map((pc) => pc['curso_nome'] as String)
+                      .toList();
 
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1330,7 +1565,6 @@ class _EditarCursoScreenState extends State<EditarCursoScreen> {
       text: widget.curso['nome']?.toString() ?? '',
     );
   }
-  
 
   Future<void> _salvarAlteracoes() async {
     final nome = _nomeController.text.trim();
@@ -1404,27 +1638,6 @@ class _EditarCursoScreenState extends State<EditarCursoScreen> {
 
 // === Adicionar Professor ===
 
-class EnsalamentoDialog extends StatefulWidget {
-  const EnsalamentoDialog({super.key});
-
-  @override
-  State<EnsalamentoDialog> createState() => _EnsalamentoDialogState();
-}
-
-class _EnsalamentoDialogState extends State<EnsalamentoDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _materiaController = TextEditingController();
-  String? _selectedCurso;
-  String? _selectedProfessor;
-  String? _selectedHorario;
-  int? _selectedSemestre;
-  int? _selectedSalaId;
-  List<Map<String, dynamic>> _salasDisponiveis = [];
-  List<Map<String, dynamic>> _cursos = [];
-  List<Map<String, dynamic>> _professores = [];
-  bool _isLoading = false;
-  bool _isLoadingSalas = false;
-
   // Recursos disponíveis
   final Map<String, bool> _recursos = {
     'projetor': false,
@@ -1436,280 +1649,4 @@ class _EnsalamentoDialogState extends State<EnsalamentoDialog> {
     'ma': false,
   };
 
-  @override
-  void initState() {
-    super.initState();
-    _carregarDadosIniciais();
-  }
-
-  Future<void> _carregarDadosIniciais() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final cursos = await Supabase.instance.client.from('cursos').select();
-      final professores =
-          await Supabase.instance.client.from('professores').select();
-
-      setState(() {
-        _cursos = (cursos as List).cast<Map<String, dynamic>>();
-        _professores = (professores as List).cast<Map<String, dynamic>>();
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Erro ao carregar dados: $e')));
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _buscarSalasDisponiveis() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedHorario == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selecione um horário')));
-      return;
-    }
-
-    setState(() => _isLoadingSalas = true);
-
-    try {
-      // Filtra recursos selecionados
-      final recursosSelecionados =
-          _recursos.entries.where((e) => e.value).map((e) => e.key).toList();
-
-      // Consulta salas que atendem aos requisitos
-      final query = Supabase.instance.client
-          .from('salas')
-          .select()
-          .contains('recursos', recursosSelecionados);
-
-      final result = await query;
-
-      setState(() {
-        _salasDisponiveis = (result as List).cast<Map<String, dynamic>>();
-        _selectedSalaId = null;
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Erro ao buscar salas: $e')));
-    } finally {
-      setState(() => _isLoadingSalas = false);
-    }
-  }
-
-  Future<void> _salvarEnsalamento() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedSalaId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selecione uma sala')));
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      // Filtra recursos selecionados
-      final recursosSelecionados =
-          _recursos.entries.where((e) => e.value).map((e) => e.key).toList();
-
-      await Supabase.instance.client.from('ensalamento').insert({
-        'curso': _selectedCurso,
-        'professor': _selectedProfessor,
-        'materia': _materiaController.text,
-        'semestre': _selectedSemestre,
-        'horario': _selectedHorario,
-        'sala_id': _selectedSalaId,
-        'recursos_necessarios': recursosSelecionados,
-      });
-
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ensalamento salvo com sucesso!')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Erro ao salvar ensalamento: $e')));
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Novo Ensalamento'),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_isLoading)
-                const Center(child: CircularProgressIndicator())
-              else ...[
-                // Campo para selecionar curso
-                DropdownButtonFormField<String>(
-                  value: _selectedCurso,
-                  decoration: const InputDecoration(labelText: 'Curso'),
-                  items:
-                      _cursos.map<DropdownMenuItem<String>>((curso) {
-                        return DropdownMenuItem<String>(
-                          value: curso['nome'] as String,
-                          child: Text(curso['nome'] as String),
-                        );
-                      }).toList(),
-                  onChanged: (value) => setState(() => _selectedCurso = value),
-                  validator:
-                      (value) => value == null ? 'Selecione um curso' : null,
-                ),
-
-                const SizedBox(height: 16),
-
-                // Campo para selecionar professor
-                DropdownButtonFormField<String>(
-                  value: _selectedProfessor,
-                  decoration: const InputDecoration(labelText: 'Professor'),
-                  items:
-                      _professores.map<DropdownMenuItem<String>>((prof) {
-                        return DropdownMenuItem<String>(
-                          value: prof['nome'] as String,
-                          child: Text(prof['nome'] as String),
-                        );
-                      }).toList(),
-                  onChanged:
-                      (value) => setState(() => _selectedProfessor = value),
-                  validator:
-                      (value) =>
-                          value == null ? 'Selecione um professor' : null,
-                ),
-
-                const SizedBox(height: 16),
-
-                // Campo para matéria
-                TextFormField(
-                  controller: _materiaController,
-                  decoration: const InputDecoration(labelText: 'Matéria'),
-                  validator:
-                      (value) => value!.isEmpty ? 'Informe a matéria' : null,
-                ),
-
-                const SizedBox(height: 16),
-
-                // Campo para semestre
-                DropdownButtonFormField<int>(
-                  value: _selectedSemestre,
-                  decoration: const InputDecoration(labelText: 'Semestre'),
-                  items:
-                      List.generate(10, (i) => i + 1).map((semestre) {
-                        return DropdownMenuItem(
-                          value: semestre,
-                          child: Text('$semestre'),
-                        );
-                      }).toList(),
-                  onChanged:
-                      (value) => setState(() => _selectedSemestre = value),
-                  validator:
-                      (value) => value == null ? 'Selecione o semestre' : null,
-                ),
-
-                const SizedBox(height: 16),
-
-                // Campo para horário
-                DropdownButtonFormField<String>(
-                  value: _selectedHorario,
-                  decoration: const InputDecoration(labelText: 'Horário'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'primeiro',
-                      child: Text('Primeiro Horário'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'segundo',
-                      child: Text('Segundo Horário'),
-                    ),
-                  ],
-                  onChanged:
-                      (value) => setState(() => _selectedHorario = value),
-                  validator:
-                      (value) => value == null ? 'Selecione o horário' : null,
-                ),
-
-                const SizedBox(height: 16),
-                const Text(
-                  'Recursos Necessários:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-
-                // Checkboxes para recursos
-                Wrap(
-                  spacing: 8,
-                  children:
-                      _recursos.keys.map((recurso) {
-                        return FilterChip(
-                          label: Text(recurso.replaceAll('_', ' ')),
-                          selected: _recursos[recurso]!,
-                          onSelected: (selected) {
-                            setState(() => _recursos[recurso] = selected);
-                          },
-                        );
-                      }).toList(),
-                ),
-
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _buscarSalasDisponiveis,
-                  child: const Text('Buscar Salas Disponíveis'),
-                ),
-
-                if (_isLoadingSalas)
-                  const LinearProgressIndicator()
-                else if (_salasDisponiveis.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Salas Disponíveis:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  ..._salasDisponiveis.map((sala) {
-                    return RadioListTile<int>(
-                      title: Text(sala['nome']),
-                      subtitle: Text('Capacidade: ${sala['capacidade']}'),
-                      value: sala['id'],
-                      groupValue: _selectedSalaId,
-                      onChanged:
-                          (value) => setState(() => _selectedSalaId = value),
-                    );
-                  }),
-                ],
-              ],
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _salvarEnsalamento,
-          child:
-              _isLoading
-                  ? const CircularProgressIndicator()
-                  : const Text('Salvar Ensalamento'),
-        ),
-      ],
-    );
-  }
-
-  @override
-  void dispose() {
-    _materiaController.dispose();
-    super.dispose();
-  }
-}
+  

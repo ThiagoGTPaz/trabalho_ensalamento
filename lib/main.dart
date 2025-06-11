@@ -221,71 +221,70 @@ class _AlunoInfoScreenState extends State<AlunoInfoScreen> {
   String? _cursoSelecionado;
   String? _semestreSelecionado;
   bool _isLoading = false;
+  List<Map<String, dynamic>> _cursos = [];
+  List<String> _semestres = [];
 
-  final List<String> _cursos = [
-    'Análise e Desenvolvimento de Sistemas',
-    'Administração',
-    'Direito',
-    'Enfermagem',
-    'Engenharia Civil',
-    'Psicologia',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _carregarCursosESemestres();
+  }
 
-  final List<String> _semestres = [
-    '1º Semestre',
-    '2º Semestre',
-    '3º Semestre',
-    '4º Semestre',
-    '5º Semestre',
-    '6º Semestre',
-    '7º Semestre',
-    '8º Semestre',
-  ];
+  Future<void> _carregarCursosESemestres() async {
+    setState(() {
+      _isLoading = true;
+    });
 
-  // Método de confirmação para inserir dados do aluno
-  void _confirmar() async {
-    if (_cursoSelecionado != null && _semestreSelecionado != null) {
+    try {
+      // Carrega cursos disponíveis
+      final cursosResponse = await Supabase.instance.client
+          .from('cursos')
+          .select('nome')
+          .order('nome');
+      
+      // Carrega semestres distintos dos ensalamentos
+      final semestresResponse = await Supabase.instance.client
+          .from('ensalamentos')
+          .select('semestre')
+          .order('semestre');
+
       setState(() {
-        _isLoading = true;
+        _cursos = (cursosResponse as List).cast<Map<String, dynamic>>();
+        _semestres = (semestresResponse as List)
+            .cast<Map<String, dynamic>>()
+            .map((e) => e['semestre'].toString())
+            .toSet() // Remove duplicatas
+            .toList()
+            ..sort();
       });
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao carregar dados: $error')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
-      try {
-        final supabase = Supabase.instance.client;
-
-        final response = await supabase.from('alunos').insert({
-          'curso': _cursoSelecionado,
-          'semestre': _semestreSelecionado,
-          'criado_em': DateTime.now().toIso8601String(),
-        });
-
-        if (response.error != null) {
-          throw response.error!.message;
-        }
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) => AlunoScreen(
-                  curso: _cursoSelecionado!,
-                  semestre: _semestreSelecionado!,
-                ),
-          ),
-        );
-      } catch (error) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Erro: $error')));
-      } finally {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    } else {
+  void _confirmar() {
+    if (_cursoSelecionado == null || _semestreSelecionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Selecione curso e semestre')),
       );
+      return;
     }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AlunoScreen(
+          curso: _cursoSelecionado!,
+          semestre: _semestreSelecionado!,
+        ),
+      ),
+    );
   }
 
   @override
@@ -298,76 +297,142 @@ class _AlunoInfoScreenState extends State<AlunoInfoScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                labelText: 'Curso',
-                border: OutlineInputBorder(),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Curso',
+                      border: OutlineInputBorder(),
+                    ),
+                    value: _cursoSelecionado,
+                    items: _cursos
+                        .map(
+                          (curso) => DropdownMenuItem(
+                            value: curso['nome'] as String,
+                            child: Text(curso['nome'] as String),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _cursoSelecionado = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Semestre',
+                      border: OutlineInputBorder(),
+                    ),
+                    value: _semestreSelecionado,
+                    items: _semestres
+                        .map(
+                          (semestre) => DropdownMenuItem(
+                            value: semestre,
+                            child: Text('$semestreº Semestre'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _semestreSelecionado = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _confirmar,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green[700],
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 40,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text('Confirmar'),
+                  ),
+                ],
               ),
-              value: _cursoSelecionado,
-              items:
-                  _cursos
-                      .map(
-                        (curso) =>
-                            DropdownMenuItem(value: curso, child: Text(curso)),
-                      )
-                      .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _cursoSelecionado = value;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                labelText: 'Semestre',
-                border: OutlineInputBorder(),
-              ),
-              value: _semestreSelecionado,
-              items:
-                  _semestres
-                      .map(
-                        (semestre) => DropdownMenuItem(
-                          value: semestre,
-                          child: Text(semestre),
-                        ),
-                      )
-                      .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _semestreSelecionado = value;
-                });
-              },
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _confirmar,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[700],
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 40,
-                  vertical: 12,
-                ),
-              ),
-              child:
-                  _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Confirmar'),
-            ),
-          ],
-        ),
       ),
     );
   }
 }
 
-class AlunoScreen extends StatelessWidget {
+class AlunoScreen extends StatefulWidget {
   final String curso;
   final String semestre;
 
-  const AlunoScreen({super.key, required this.curso, required this.semestre});
+  const AlunoScreen({
+    super.key,
+    required this.curso,
+    required this.semestre,
+  });
+
+  @override
+  State<AlunoScreen> createState() => _AlunoScreenState();
+}
+
+class _AlunoScreenState extends State<AlunoScreen> {
+  late Future<List<Map<String, dynamic>>> _futureEnsalamentos;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureEnsalamentos = _carregarEnsalamentosDoDia();
+  }
+
+  Future<List<Map<String, dynamic>>> _carregarEnsalamentosDoDia() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Obtém o dia da semana atual (1 = segunda, 7 = domingo)
+      final hoje = DateTime.now();
+      final diaDaSemana = hoje.weekday;
+
+      // Converte para formato de dia (segunda, terça, etc.)
+      final diasDaSemana = {
+        1: 'segunda',
+        2: 'terca',
+        3: 'quarta',
+        4: 'quinta',
+        5: 'sexta',
+      };
+
+      final diaAtual = diasDaSemana[diaDaSemana];
+
+      if (diaAtual == null) {
+        return []; // Fim de semana, não há aulas
+      }
+
+      // Busca os ensalamentos para o curso, semestre e dia atual
+      final response = await Supabase.instance.client
+          .from('ensalamentos')
+          .select('''
+            *,
+            sala:salas(nome),
+            professor:professores(nome),
+            curso:cursos(nome)
+          ''')
+          .eq('curso', widget.curso)
+          .eq('semestre', widget.semestre)
+          .eq('dia_semana', diaAtual)
+          .order('horario');
+
+      return (response as List).cast<Map<String, dynamic>>();
+    } catch (error) {
+      throw Exception('Erro ao carregar ensalamentos: $error');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -375,15 +440,73 @@ class AlunoScreen extends StatelessWidget {
       backgroundColor: Colors.green[50],
       appBar: AppBar(
         backgroundColor: Colors.green[600],
-        title: const Text('Área do Aluno'),
+        title: Text('Aulas do dia - ${widget.curso}'),
       ),
-      body: Center(
-        child: Text(
-          'Bem-vindo, Aluno do curso $curso,\ndo semestre $semestre!',
-          style: const TextStyle(fontSize: 20),
-          textAlign: TextAlign.center,
-        ),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _futureEnsalamentos,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Erro: ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(
+              child: Text('Nenhuma aula agendada para hoje.'),
+            );
+          }
+
+          final ensalamentos = snapshot.data!;
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: ensalamentos.length,
+            itemBuilder: (context, index) {
+              final ensalamento = ensalamentos[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ensalamento['materia'] ?? 'Matéria não informada',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Professor: ${ensalamento['professor']?['nome'] ?? 'Não informado'}',
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Sala: ${ensalamento['sala']?['nome'] ?? 'Não informada'}',
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Horário: ${_formatarHorario(ensalamento['horario'])}',
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
+  }
+
+  String _formatarHorario(String? horario) {
+    switch (horario) {
+      case 'primeiro':
+        return 'Primeiro Horário (19:00 - 20:40)';
+      case 'segundo':
+        return 'Segundo Horário (20:50 - 22:30)';
+      default:
+        return 'Horário não informado';
+    }
   }
 }
