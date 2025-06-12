@@ -25,7 +25,7 @@ class AdminHomeScreen extends StatelessWidget {
                 label: const Text('Ensalamento'),
                 onPressed: () => _abrirFormularioEnsalamento(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[800],
+                  backgroundColor: Colors.green[400],
                   minimumSize: const Size(double.infinity, 50),
                 ),
               ),
@@ -35,7 +35,7 @@ class AdminHomeScreen extends StatelessWidget {
                 label: const Text('Lista de Professores'),
                 onPressed: () => _abrirListaProfessores(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[900],
+                  backgroundColor: Colors.green[400],
                   minimumSize: const Size(double.infinity, 50),
                 ),
               ),
@@ -45,7 +45,7 @@ class AdminHomeScreen extends StatelessWidget {
                 label: const Text('Criar Sala'),
                 onPressed: () => _abrirFormularioCriarSala(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[700],
+                  backgroundColor: Colors.green[400],
                   minimumSize: const Size(double.infinity, 50),
                 ),
               ),
@@ -65,7 +65,7 @@ class AdminHomeScreen extends StatelessWidget {
                 label: const Text('Editar Sala'),
                 onPressed: () => _abrirListaSalas(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[600],
+                  backgroundColor: Colors.green[400],
                   minimumSize: const Size(double.infinity, 50),
                 ),
               ),
@@ -75,7 +75,7 @@ class AdminHomeScreen extends StatelessWidget {
                 label: const Text('Lista de Cursos'),
                 onPressed: () => _abrirListaCursos(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[300],
+                  backgroundColor: Colors.green[400],
                   minimumSize: const Size(double.infinity, 50),
                 ),
               ),
@@ -85,7 +85,7 @@ class AdminHomeScreen extends StatelessWidget {
                 label: const Text('Adicionar Professor'),
                 onPressed: () => _abrirFormularioAdicionarProfessor(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[500],
+                  backgroundColor: Colors.green[400],
                   minimumSize: const Size(double.infinity, 50),
                 ),
               ),
@@ -95,7 +95,7 @@ class AdminHomeScreen extends StatelessWidget {
                 label: const Text('Calendário de Aulas'),
                 onPressed: () => _abrirCalendarioAulas(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[700],
+                  backgroundColor: Colors.green[400],
                   minimumSize: const Size(double.infinity, 50),
                 ),
               ),
@@ -172,6 +172,7 @@ class _CalendarioAulasScreenState extends State<CalendarioAulasScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   Map<DateTime, List<Map<String, dynamic>>> _events = {};
+
 
   @override
   void initState() {

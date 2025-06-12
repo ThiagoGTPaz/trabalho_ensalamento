@@ -103,15 +103,29 @@ class _LoginScreenState extends State<LoginScreen> {
       MaterialPageRoute(builder: (context) => const ProfessorInfoScreen()),
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.green[50],
-      appBar: AppBar(
-        backgroundColor: Colors.green[600],
-        title: const Text('Login'),
-      ),
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Colors.green[50],
+    appBar: AppBar(
+      backgroundColor: Colors.green[600],
+      title: const Text('Login'),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 16.0),
+          child: Center(
+            child: Text(
+              'AchaSala',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white, 
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: SingleChildScrollView(
@@ -308,7 +322,22 @@ class _AlunoInfoScreenState extends State<AlunoInfoScreen> {
       appBar: AppBar(
         backgroundColor: Colors.green[600],
         title: const Text('Informações do Aluno'),
-      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 16.0),
+          child: Center(
+            child: Text(
+              'AchaSala',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child:
@@ -395,32 +424,15 @@ class _AlunoScreenState extends State<AlunoScreen> {
   @override
   void initState() {
     super.initState();
-    _futureEnsalamentos = _carregarEnsalamentosDoDia();
+    _futureEnsalamentos = _carregarEnsalamentos();
   }
 
-  Future<List<Map<String, dynamic>>> _carregarEnsalamentosDoDia() async {
+  Future<List<Map<String, dynamic>>> _carregarEnsalamentos() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final hoje = DateTime.now();
-      final diaDaSemana = hoje.weekday;
-
-      final diasDaSemana = {
-        1: 'segunda',
-        2: 'terca',
-        3: 'quarta',
-        4: 'quinta',
-        5: 'sexta',
-      };
-
-      final diaAtual = diasDaSemana[diaDaSemana];
-
-      if (diaAtual == null) {
-        return []; 
-      }
-
       final response = await Supabase.instance.client
           .from('ensalamentos')
           .select('''
@@ -431,7 +443,7 @@ class _AlunoScreenState extends State<AlunoScreen> {
           ''')
           .eq('curso', widget.curso)
           .eq('semestre', widget.semestre)
-          .eq('dia_semana', diaAtual)
+          .order('dia_semana')
           .order('horario');
 
       return (response as List).cast<Map<String, dynamic>>();
@@ -444,80 +456,174 @@ class _AlunoScreenState extends State<AlunoScreen> {
     }
   }
 
+  Map<String, Map<String, String>> _organizarEnsalamentosPorDia(
+      List<Map<String, dynamic>> ensalamentos) {
+    final Map<String, Map<String, String>> tabela = {
+      'segunda': {'primeiro': '', 'segundo': ''},
+      'terca': {'primeiro': '', 'segundo': ''},
+      'quarta': {'primeiro': '', 'segundo': ''},
+      'quinta': {'primeiro': '', 'segundo': ''},
+      'sexta': {'primeiro': '', 'segundo': ''},
+    };
+
+    for (final ensalamento in ensalamentos) {
+      final dia = ensalamento['dia_semana'] as String?;
+      final horario = ensalamento['horario'] as String?;
+      final sala = ensalamento['sala']?['nome'] as String? ?? '';
+
+      if (dia != null && horario != null && tabela.containsKey(dia)) {
+        tabela[dia]![horario] = sala;
+      }
+    }
+
+    return tabela;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.green[50],
       appBar: AppBar(
         backgroundColor: Colors.green[600],
-        title: Text('Aulas do dia - ${widget.curso}'),
-      ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _futureEnsalamentos,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Erro: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(
-              child: Text('Nenhuma aula agendada para hoje.'),
-            );
-          }
+        title: Text('Grade Horária - ${widget.curso}'),
+        actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 16.0),
+          child: Center(
+            child: Text(
+              'AchaSala',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+      body: Center(
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: _futureEnsalamentos,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Erro: ${snapshot.error}'));
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Center(child: Text('Nenhuma aula agendada.'));
+            }
 
-          final ensalamentos = snapshot.data!;
+            final tabela = _organizarEnsalamentosPorDia(snapshot.data!);
+            final diasDaSemana = [
+              'segunda',
+              'terca',
+              'quarta',
+              'quinta',
+              'sexta'
+            ];
+            final nomesDias = [
+              'Segunda',
+              'Terça',
+              'Quarta',
+              'Quinta',
+              'Sexta'
+            ];
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: ensalamentos.length,
-            itemBuilder: (context, index) {
-              final ensalamento = ensalamentos[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        ensalamento['materia'] ?? 'Matéria não informada',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.green[300]!,
+                    width: 2,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: DataTable(
+                    columnSpacing: 20,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    columns: [
+                      DataColumn(
+                        label: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: const Text(
+                            'Horário',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Professor: ${ensalamento['professor']?['nome'] ?? 'Não informado'}',
+                      ...diasDaSemana.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        return DataColumn(
+                          label: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              nomesDias[index],
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                    rows: [
+                      DataRow(
+                        cells: [
+                          const DataCell(
+                            Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Text('19:00 - 20:40'),
+                            ),
+                          ),
+                          ...diasDaSemana.map((dia) {
+                            return DataCell(
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Text(
+                                  tabela[dia]!['primeiro']!,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Sala: ${ensalamento['sala']?['nome'] ?? 'Não informada'}',
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Horário: ${_formatarHorario(ensalamento['horario'])}',
+                      DataRow(
+                        cells: [
+                          const DataCell(
+                            Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Text('20:50 - 22:30'),
+                            ),
+                          ),
+                          ...diasDaSemana.map((dia) {
+                            return DataCell(
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Text(
+                                  tabela[dia]!['segundo']!,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              );
-            },
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     );
-  }
-
-  String _formatarHorario(String? horario) {
-    switch (horario) {
-      case 'primeiro':
-        return 'Primeiro Horário (19:00 - 20:40)';
-      case 'segundo':
-        return 'Segundo Horário (20:50 - 22:30)';
-      default:
-        return 'Horário não informado';
-    }
   }
 }
 
@@ -595,7 +701,22 @@ class _ProfessorInfoScreenState extends State<ProfessorInfoScreen> {
       appBar: AppBar(
         backgroundColor: Colors.green[600],
         title: const Text('Informações do Professor'),
-      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 16.0),
+          child: Center(
+            child: Text(
+              'AchaSala',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child:
@@ -700,7 +821,22 @@ class _ProfessorScreenState extends State<ProfessorScreen> {
       appBar: AppBar(
         backgroundColor: Colors.green[600],
         title: Text('Aulas - ${widget.professorNome}'),
-      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 16.0),
+          child: Center(
+            child: Text(
+              'AchaSala',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _futureEnsalamentos,
         builder: (context, snapshot) {
