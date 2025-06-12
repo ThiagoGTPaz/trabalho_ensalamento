@@ -12,6 +12,21 @@ class AdminHomeScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.green[600],
         title: const Text('Painel do Administrador'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Center(
+              child: Text(
+                'AchaSala',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Center(
         child: Padding(
@@ -90,15 +105,8 @@ class AdminHomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.calendar_today),
-                label: const Text('Calendário de Aulas'),
-                onPressed: () => _abrirCalendarioAulas(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[400],
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-              ),
+              
+              
             ],
           ),
         ),
